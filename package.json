@@ -1,0 +1,12 @@
+{
+  "name": "tomato-harvest-tracker",
+  "version": "1.0.0",
+  "description": "A simple tracker for tomato harvests",
+  "main": "index.html",
+  "scripts": {
+    "setup": "node setup.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

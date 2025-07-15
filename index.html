@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tomato Harvest Tracker</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
+    
+    <!-- Use the full Tailwind CSS instead of the minimal version -->
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.10.5/cdn.min.js" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8fafc;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e2e8f0' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        .tomato-gradient {
+            background: linear-gradient(135deg, #ff5e62, #ff9966);
+        }
+
+        .autocomplete-results {
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .input-field {
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: #ff9966;
+            box-shadow: 0 0 0 3px rgba(255, 153, 102, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff5e62, #ff9966);
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(255, 94, 98, 0.2), 0 2px 4px -1px rgba(255, 153, 102, 0.1);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 10px 15px -3px rgba(255, 94, 98, 0.3), 0 4px 6px -2px rgba(255, 153, 102, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .radio-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .radio-button {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .radio-button input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .radio-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #e2e8f0;
+            margin-bottom: 8px;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .radio-button input:checked ~ .radio-avatar {
+            border-color: #ff9966;
+            background-color: #fff5f0;
+        }
+
+        .radio-label {
+            color: #4a5568;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .radio-button input:checked ~ .radio-label {
+            color: #ff5e62;
+            font-weight: 600;
+        }
+
+        /* Entry animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .entry-row {
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        /* Custom styles for the remove button */
+        .remove-btn {
+            background-color: rgba(255, 94, 98, 0.1);
+            color: #ff5e62;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background-color: rgba(255, 94, 98, 0.2);
+            transform: rotate(90deg);
+        }
+
+        /* Success and error toasts */
+        .toast {
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .success-toast {
+            background-color: #f0fff4;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .error-toast {
+            background-color: #fff5f5;
+            border-left: 4px solid #f56565;
+        }
+
+        iframe {
+            display: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-10" x-data="harvestTracker()">
+    <div class="container mx-auto px-4 max-w-2xl">
+        <!-- Header with illustration -->
+        <div class="text-center mb-8">
+            <div class="inline-block tomato-gradient p-4 rounded-full mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                </svg>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800">Tomato Harvest Tracker</h1>
+            <p class="text-gray-600 mt-2 max-w-lg mx-auto">Track your tomato harvest throughout the season with this simple form.</p>
+        </div>
+        
+        <!-- Hidden iFrame for response -->
+        <iframe id="hiddenIframe" name="hiddenIframe"></iframe>
+        
+        <!-- Main Form Card -->
+        <div class="form-card p-8 mb-8">
+            <form id="harvestForm" @submit.prevent="submitForm" class="space-y-8">
+                <!-- Harvester Selection -->
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Who's harvesting today?</h2>
+                    <div class="radio-container">
+                        <label class="radio-button">
+                            <input type="radio" name="harvester" value="Jed" x-model="harvester" required>
+                            <div class="radio-avatar">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <span class="radio-label">Jed</span>
+                        </label>
+                        <label class="radio-button">
+                            <input type="radio" name="harvester" value="Ryan" x-model="harvester">
+                            <div class="radio-avatar">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <span class="radio-label">Ryan</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Divider -->
+                <div class="border-t border-gray-200"></div>
+                
+                <!-- Harvest Entries -->
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">What did you harvest?</h2>
+                    <div class="space-y-4">
+                        <template x-for="(entry, index) in entries" :key="index">
+                            <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0 items-end entry-row p-4 rounded-lg" :class="{'bg-orange-50': index < entries.length - 1}">
+                                <!-- Tomato Variety Input with Autocomplete -->
+                                <div class="w-full md:w-2/3 relative">
+                                    <label class="block text-gray-700 font-medium mb-2">Tomato Variety</label>
+                                    <input 
+                                        type="text"
+                                        x-model="entry.variety"
+                                        @input="filterVarieties(index)"
+                                        @click="showSuggestions[index] = true"
+                                        @blur="setTimeout(() => showSuggestions[index] = false, 200)"
+                                        placeholder="Start typing..."
+                                        class="input-field w-full focus:outline-none"
+                                        :required="index < entries.length - 1"
+                                    >
+                                    <!-- Autocomplete Results -->
+                                    <div 
+                                        x-show="showSuggestions[index] && filteredVarieties[index].length > 0"
+                                        class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg autocomplete-results"
+                                    >
+                                        <template x-for="suggestion in filteredVarieties[index]" :key="suggestion">
+                                            <div 
+                                                @click="selectVariety(suggestion, index)"
+                                                class="px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors"
+                                                x-text="suggestion"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </div>
+                                
+                                <!-- Quantity Input -->
+                                <div class="w-full md:w-1/3">
+                                    <label class="block text-gray-700 font-medium mb-2">Quantity</label>
+                                    <input 
+                                        type="number"
+                                        x-model="entry.quantity"
+                                        min="1"
+                                        placeholder="How many?"
+                                        @input="checkToAddRow()"
+                                        class="input-field w-full focus:outline-none"
+                                        :required="index < entries.length - 1"
+                                    >
+                                </div>
+                                
+                                <!-- Remove Button (except for the last row) -->
+                                <div x-show="index < entries.length - 1" class="flex justify-center md:justify-end">
+                                    <button 
+                                        type="button" 
+                                        @click="removeEntry(index)" 
+                                        class="remove-btn"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="flex justify-center pt-4">
+                    <button 
+                        type="submit" 
+                        class="btn-primary"
+                        :disabled="isSubmitting"
+                    >
+                        <span x-show="!isSubmitting" class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Save Harvest
+                        </span>
+                        <span x-show="isSubmitting" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Footer Card -->
+        <div class="text-center text-gray-500 text-sm">
+            <p>Created for tracking the 2025 tomato growing season 🍅</p>
+        </div>
+        
+        <!-- Success Message -->
+        <div x-show="showSuccess" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0" class="fixed bottom-4 right-4 toast success-toast p-4 w-72">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-green-800">Success! Your harvest has been recorded.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Message -->
+        <div x-show="errorMessage" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0" class="fixed bottom-4 right-4 toast error-toast p-4 w-72">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-red-800" x-text="errorMessage"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function harvestTracker() {
+            // Alphabetically sorted tomato varieties
+            const tomatoVarieties = [
+                "Alice's Dream",
+                "Amish Paste",
+                "Big Zac",
+                "Black Cherry",
+                "Blush",
+                "Captain Lucky",
+                "Casey's Pure Yellow",
+                "Cherokee Purple",
+                "D Amy's Ohio",
+                "D Awesome",
+                "D CC McGee",
+                "D Parfait",
+                "D Perfect Harmony",
+                "D Sonrojo Monster",
+                "D Suz's Beauty",
+                "D Uluru Ochre",
+                "Green Giant",
+                "Lillian Cherokee (F1)",
+                "Lillian Cherokee (F2)",
+                "Mexico Midget",
+                "Mortgage Lifter",
+                "Norfolk Purple",
+                "Phoenix",
+                "Pink Brandywine",
+                "Polish",
+                "SunGold",
+                "Sweet Million"
+            ];
+            
+            return {
+                // Google Apps Script URL
+                scriptUrl: 'https://script.google.com/macros/s/AKfycbwvg9pV912Ip0U41rUftcE-eJ_8Bh_CgLqt-SnmxLd_5bd4Tm7_RHLQHUmkoe1Kx7wl/exec',
+                
+                // Form data
+                harvester: '',
+                entries: [{ variety: '', quantity: '' }],
+                
+                // UI states
+                isSubmitting: false,
+                showSuccess: false,
+                errorMessage: '',
+                showSuggestions: [false],
+                filteredVarieties: [tomatoVarieties],
+                
+                // Initialize
+                init() {
+                    // Pre-populate with default empty row
+                    this.checkToAddRow();
+                    
+                    // Add listener for iframe messages
+                    window.addEventListener('message', this.handleIframeResponse.bind(this), false);
+                },
+                
+                // Handle messages from the iframe
+                handleIframeResponse(event) {
+                    // Try to parse the data
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.success) {
+                            this.showSuccess = true;
+                            
+                            // Reset form
+                            this.entries = [{ variety: '', quantity: '' }];
+                            this.showSuggestions = [false];
+                            this.filteredVarieties = [tomatoVarieties];
+                            this.isSubmitting = false;
+                            
+                            // Auto-hide success after 4 seconds
+                            setTimeout(() => {
+                                this.showSuccess = false;
+                            }, 4000);
+                        } else {
+                            this.errorMessage = data.error || 'An error occurred while saving your data.';
+                            this.isSubmitting = false;
+                            
+                            // Auto-hide error after 4 seconds
+                            setTimeout(() => {
+                                this.errorMessage = '';
+                            }, 4000);
+                        }
+                    } catch (e) {
+                        // If not JSON, assume success anyway (since we're using GET)
+                        this.showSuccess = true;
+                        
+                        // Reset form
+                        this.entries = [{ variety: '', quantity: '' }];
+                        this.showSuggestions = [false];
+                        this.filteredVarieties = [tomatoVarieties];
+                        this.isSubmitting = false;
+                        
+                        // Auto-hide success after 4 seconds
+                        setTimeout(() => {
+                            this.showSuccess = false;
+                        }, 4000);
+                    }
+                },
+                
+                // Filter varieties based on input
+                filterVarieties(index) {
+                    const input = this.entries[index].variety.toLowerCase();
+                    this.filteredVarieties[index] = tomatoVarieties.filter(variety => 
+                        variety.toLowerCase().includes(input)
+                    );
+                    this.showSuggestions[index] = true;
+                },
+                
+                // Select a variety from the dropdown
+                selectVariety(variety, index) {
+                    this.entries[index].variety = variety;
+                    this.showSuggestions[index] = false;
+                    // Focus on quantity input
+                    setTimeout(() => {
+                        const quantityInput = document.querySelectorAll('input[type="number"]')[index];
+                        if (quantityInput) quantityInput.focus();
+                    }, 50);
+                },
+                
+                // Check if we need to add a new row
+                checkToAddRow() {
+                    const lastEntry = this.entries[this.entries.length - 1];
+                    
+                    // If the last row has both variety and quantity filled, add a new row
+                    if (lastEntry.variety.trim() !== '' && lastEntry.quantity > 0) {
+                        this.entries.push({ variety: '', quantity: '' });
+                        this.showSuggestions.push(false);
+                        this.filteredVarieties.push(tomatoVarieties);
+                    }
+                },
+                
+                // Remove an entry
+                removeEntry(index) {
+                    this.entries.splice(index, 1);
+                    this.showSuggestions.splice(index, 1);
+                    this.filteredVarieties.splice(index, 1);
+                },
+                
+                // Submit the form
+                submitForm() {
+                    // Filter out empty entries
+                    const validEntries = this.entries.filter(entry => 
+                        entry.variety.trim() !== '' && entry.quantity > 0
+                    );
+                    
+                    // Validate that we have at least one entry
+                    if (validEntries.length === 0 || !this.harvester) {
+                        this.errorMessage = 'Please enter at least one harvest entry and select a harvester.';
+                        
+                        // Auto-hide error after 4 seconds
+                        setTimeout(() => {
+                            this.errorMessage = '';
+                        }, 4000);
+                        
+                        return;
+                    }
+                    
+                    this.isSubmitting = true;
+                    this.errorMessage = '';
+                    
+                    // Method 1: Using a hidden iframe to avoid CORS issues
+                    const iframe = document.getElementById('hiddenIframe');
+                    
+                    // Create a GET URL with data encoded in query parameters
+                    let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
+                    
+                    // Add each entry to the URL
+                    validEntries.forEach((entry, index) => {
+                        url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
+                        url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
+                    });
+                    
+                    // Add count parameter
+                    url += '&count=' + validEntries.length;
+                    
+                    // Add a timestamp to prevent caching
+                    url += '&timestamp=' + new Date().getTime();
+                    
+                    // Navigate the iframe to the URL
+                    iframe.src = url;
+                    
+                    // Show success immediately (for demo purposes)
+                    setTimeout(() => {
+                        this.showSuccess = true;
+                        
+                        // Reset form
+                        this.entries = [{ variety: '', quantity: '' }];
+                        this.showSuggestions = [false];
+                        this.filteredVarieties = [tomatoVarieties];
+                        this.isSubmitting = false;
+                        
+                        // Auto-hide success after 4 seconds
+                        setTimeout(() => {
+                            this.showSuccess = false;
+                        }, 4000);
+                    }, 1000);
+                }
+            };
+        }
+    </script>
+</body>
+</html>
