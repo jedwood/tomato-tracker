@@ -173,9 +173,10 @@
             border-left: 4px solid #f56565;
         }
 
-        iframe {
+         iframe {
             display: none;
         }
+       
     </style>
 </head>
 <body class="min-h-screen py-10" x-data="harvestTracker()">
@@ -192,8 +193,8 @@
         </div> -->
         
         <!-- Hidden iFrame for response -->
-        <iframe id="hiddenIframe" name="hiddenIframe"></iframe>
-        
+        <iframe id="hiddenIframe" name="hiddenIframe" style="display: none;"></iframe>
+
         <!-- Main Form Card -->
         <div class="form-card p-8 mb-8">
             <form id="harvestForm" @submit.prevent="submitForm" class="space-y-8">
@@ -445,7 +446,7 @@
                 },
                 
                 // Submit the form using direct fetch
-                async submitForm() {
+               submitForm() {
                     // Filter out empty entries
                     const validEntries = this.entries.filter(entry => 
                         entry.variety.trim() !== '' && entry.quantity > 0
@@ -461,70 +462,34 @@
                     this.isSubmitting = true;
                     this.errorMessage = '';
                     
-                    try {
-                        // Create URL with data
-                        let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
-                        validEntries.forEach((entry, index) => {
-                            url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
-                            url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
-                        });
-                        url += '&count=' + validEntries.length;
-                        url += '&timestamp=' + new Date().getTime();
-                        
-                        // Make the fetch request
-                        const response = await fetch(url, {
-                            method: 'GET',
-                            mode: 'cors'
-                        });
-                        
-                        if (response.ok) {
-                            // Try to parse the response to get any custom message
-                            try {
-                                const data = await response.json();
-                                if (data.success) {
-                                    // Success!
-                                    this.showSuccess = true;
-                                    
-                                    // Reset form
-                                    this.entries = [{ variety: '', quantity: '' }];
-                                    this.showSuggestions = [false];
-                                    this.filteredVarieties = [tomatoVarieties];
-                                    
-                                    // Auto-hide success after 4 seconds
-                                    setTimeout(() => {
-                                        this.showSuccess = false;
-                                    }, 4000);
-                                } else {
-                                    throw new Error(data.error || 'Unknown error occurred');
-                                }
-                            } catch (parseError) {
-                                // If we can't parse JSON, but response was ok, assume success
-                                this.showSuccess = true;
-                                
-                                // Reset form
-                                this.entries = [{ variety: '', quantity: '' }];
-                                this.showSuggestions = [false];
-                                this.filteredVarieties = [tomatoVarieties];
-                                
-                                setTimeout(() => {
-                                    this.showSuccess = false;
-                                }, 4000);
-                            }
-                        } else {
-                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                        }
-                        
-                    } catch (error) {
-                        console.error('Submission error:', error);
-                        this.errorMessage = 'Failed to save harvest data. Please try again.';
-                        
-                        // Auto-hide error after 4 seconds
-                        setTimeout(() => {
-                            this.errorMessage = '';
-                        }, 4000);
-                    } finally {
+                    // Create URL with data
+                    let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
+                    validEntries.forEach((entry, index) => {
+                        url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
+                        url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
+                    });
+                    url += '&count=' + validEntries.length;
+                    url += '&timestamp=' + new Date().getTime();
+                    
+                    // Submit via iframe
+                    const iframe = document.getElementById('hiddenIframe');
+                    iframe.src = url;
+                    
+                    // Show success after delay (iframe method doesn't give us response feedback)
+                    setTimeout(() => {
+                        this.showSuccess = true;
                         this.isSubmitting = false;
-                    }
+                        
+                        // Reset form
+                        this.entries = [{ variety: '', quantity: '' }];
+                        this.showSuggestions = [false];
+                        this.filteredVarieties = [tomatoVarieties];
+                        
+                        // Auto-hide success after 4 seconds
+                        setTimeout(() => {
+                            this.showSuccess = false;
+                        }, 4000);
+                    }, 2000);
                 }
             }
         }
