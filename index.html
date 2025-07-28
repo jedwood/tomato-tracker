@@ -383,6 +383,7 @@
                 "Sweet Million"
             ];
             
+
             return {
                 // Google Apps Script URL
                 scriptUrl: 'https://script.google.com/macros/s/AKfycbwvg9pV912Ip0U41rUftcE-eJ_8Bh_CgLqt-SnmxLd_5bd4Tm7_RHLQHUmkoe1Kx7wl/exec',
@@ -402,53 +403,6 @@
                 init() {
                     // Pre-populate with default empty row
                     this.checkToAddRow();
-                    
-                    // Add listener for iframe messages
-                    window.addEventListener('message', this.handleIframeResponse.bind(this), false);
-                },
-                
-                // Handle messages from the iframe
-                handleIframeResponse(event) {
-                    // Try to parse the data
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (data.success) {
-                            this.showSuccess = true;
-                            
-                            // Reset form
-                            this.entries = [{ variety: '', quantity: '' }];
-                            this.showSuggestions = [false];
-                            this.filteredVarieties = [tomatoVarieties];
-                            this.isSubmitting = false;
-                            
-                            // Auto-hide success after 4 seconds
-                            setTimeout(() => {
-                                this.showSuccess = false;
-                            }, 4000);
-                        } else {
-                            this.errorMessage = data.error || 'An error occurred while saving your data.';
-                            this.isSubmitting = false;
-                            
-                            // Auto-hide error after 4 seconds
-                            setTimeout(() => {
-                                this.errorMessage = '';
-                            }, 4000);
-                        }
-                    } catch (e) {
-                        // If not JSON, assume success anyway (since we're using GET)
-                        this.showSuccess = true;
-                        
-                        // Reset form
-                        this.entries = [{ variety: '', quantity: '' }];
-                        this.showSuggestions = [false];
-                        this.filteredVarieties = [tomatoVarieties];
-                        this.isSubmitting = false;
-                        
-                        // Auto-hide success after 4 seconds
-                        setTimeout(() => {
-                            this.showSuccess = false;
-                        }, 4000);
-                    }
                 },
                 
                 // Filter varieties based on input
@@ -490,8 +444,8 @@
                     this.filteredVarieties.splice(index, 1);
                 },
                 
-                // Submit the form
-                submitForm() {
+                // Submit the form using direct fetch
+                async submitForm() {
                     // Filter out empty entries
                     const validEntries = this.entries.filter(entry => 
                         entry.variety.trim() !== '' && entry.quantity > 0
@@ -507,30 +461,72 @@
                     this.isSubmitting = true;
                     this.errorMessage = '';
                     
-                    // Create URL with data
-                    let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
-                    validEntries.forEach((entry, index) => {
-                        url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
-                        url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
-                    });
-                    url += '&count=' + validEntries.length;
-                    url += '&timestamp=' + new Date().getTime();
-                    
-                    // Navigate iframe and let the response handler deal with success/failure
-                    const iframe = document.getElementById('hiddenIframe');
-                    iframe.src = url;
-                    
-                    // Add timeout fallback in case iframe doesn't respond
-                    setTimeout(() => {
-                        if (this.isSubmitting) {
-                            this.errorMessage = 'Request timed out. Please try again.';
-                            this.isSubmitting = false;
-                            setTimeout(() => this.errorMessage = '', 4000);
+                    try {
+                        // Create URL with data
+                        let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
+                        validEntries.forEach((entry, index) => {
+                            url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
+                            url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
+                        });
+                        url += '&count=' + validEntries.length;
+                        url += '&timestamp=' + new Date().getTime();
+                        
+                        // Make the fetch request
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            mode: 'cors'
+                        });
+                        
+                        if (response.ok) {
+                            // Try to parse the response to get any custom message
+                            try {
+                                const data = await response.json();
+                                if (data.success) {
+                                    // Success!
+                                    this.showSuccess = true;
+                                    
+                                    // Reset form
+                                    this.entries = [{ variety: '', quantity: '' }];
+                                    this.showSuggestions = [false];
+                                    this.filteredVarieties = [tomatoVarieties];
+                                    
+                                    // Auto-hide success after 4 seconds
+                                    setTimeout(() => {
+                                        this.showSuccess = false;
+                                    }, 4000);
+                                } else {
+                                    throw new Error(data.error || 'Unknown error occurred');
+                                }
+                            } catch (parseError) {
+                                // If we can't parse JSON, but response was ok, assume success
+                                this.showSuccess = true;
+                                
+                                // Reset form
+                                this.entries = [{ variety: '', quantity: '' }];
+                                this.showSuggestions = [false];
+                                this.filteredVarieties = [tomatoVarieties];
+                                
+                                setTimeout(() => {
+                                    this.showSuccess = false;
+                                }, 4000);
+                            }
+                        } else {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         }
-                    }, 10000); // 10 second timeout
+                        
+                    } catch (error) {
+                        console.error('Submission error:', error);
+                        this.errorMessage = 'Failed to save harvest data. Please try again.';
+                        
+                        // Auto-hide error after 4 seconds
+                        setTimeout(() => {
+                            this.errorMessage = '';
+                        }, 4000);
+                    } finally {
+                        this.isSubmitting = false;
+                    }
                 }
-         
-            };
+            }
         }
     </script>
 </body>
