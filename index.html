@@ -6,8 +6,10 @@
     <title>Tomato Harvest Tracker</title>
     
     <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
-    <link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn42FPC90ZXh0Pjwvc3ZnPg==">
+    <link rel="alternate icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB0klEQVR4Ae2XA5AcQRRF36zt2rZt2/Zs27Zt2/Zs27Zt25Zt27Y9mXTNZLP7/lcdvBeR3XDu7+7u/v+/u6ven58fTNM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdM0TdN+A">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn42FPC90ZXh0Pjwvc3ZnPg==">
+    
     
     <!-- Use the full Tailwind CSS instead of the minimal version -->
     <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
@@ -498,55 +500,36 @@
                     // Validate that we have at least one entry
                     if (validEntries.length === 0 || !this.harvester) {
                         this.errorMessage = 'Please enter at least one harvest entry and select a harvester.';
-                        
-                        // Auto-hide error after 4 seconds
-                        setTimeout(() => {
-                            this.errorMessage = '';
-                        }, 4000);
-                        
+                        setTimeout(() => this.errorMessage = '', 4000);
                         return;
                     }
                     
                     this.isSubmitting = true;
                     this.errorMessage = '';
                     
-                    // Method 1: Using a hidden iframe to avoid CORS issues
-                    const iframe = document.getElementById('hiddenIframe');
-                    
-                    // Create a GET URL with data encoded in query parameters
+                    // Create URL with data
                     let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
-                    
-                    // Add each entry to the URL
                     validEntries.forEach((entry, index) => {
                         url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
                         url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
                     });
-                    
-                    // Add count parameter
                     url += '&count=' + validEntries.length;
-                    
-                    // Add a timestamp to prevent caching
                     url += '&timestamp=' + new Date().getTime();
                     
-                    // Navigate the iframe to the URL
+                    // Navigate iframe and let the response handler deal with success/failure
+                    const iframe = document.getElementById('hiddenIframe');
                     iframe.src = url;
                     
-                    // Show success immediately (for demo purposes)
+                    // Add timeout fallback in case iframe doesn't respond
                     setTimeout(() => {
-                        this.showSuccess = true;
-                        
-                        // Reset form
-                        this.entries = [{ variety: '', quantity: '' }];
-                        this.showSuggestions = [false];
-                        this.filteredVarieties = [tomatoVarieties];
-                        this.isSubmitting = false;
-                        
-                        // Auto-hide success after 4 seconds
-                        setTimeout(() => {
-                            this.showSuccess = false;
-                        }, 4000);
-                    }, 1000);
+                        if (this.isSubmitting) {
+                            this.errorMessage = 'Request timed out. Please try again.';
+                            this.isSubmitting = false;
+                            setTimeout(() => this.errorMessage = '', 4000);
+                        }
+                    }, 10000); // 10 second timeout
                 }
+         
             };
         }
     </script>
