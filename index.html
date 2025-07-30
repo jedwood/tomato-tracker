@@ -172,10 +172,6 @@
             background-color: #fff5f5;
             border-left: 4px solid #f56565;
         }
-
-         iframe {
-            display: none;
-        }
        
     </style>
 </head>
@@ -191,9 +187,6 @@
             <h1 class="text-3xl font-bold text-gray-800">Tomato Harvest Tracker</h1>
             <p class="text-gray-600 mt-2 max-w-lg mx-auto">Track your tomato harvest throughout the season with this simple form.</p>
         </div> -->
-        
-        <!-- Hidden iFrame for response -->
-        <iframe id="hiddenIframe" name="hiddenIframe" style="display: none;"></iframe>
 
         <!-- Main Form Card -->
         <div class="form-card p-8 mb-8">
@@ -389,8 +382,8 @@
             
 
             return {
-                // Google Apps Script URL
-                scriptUrl: 'https://script.google.com/macros/s/AKfycbwvg9pV912Ip0U41rUftcE-eJ_8Bh_CgLqt-SnmxLd_5bd4Tm7_RHLQHUmkoe1Kx7wl/exec',
+                // Firebase Function URL
+                firebaseUrl: 'https://us-central1-cors-5b55c.cloudfunctions.net/tomatoTracker',
                 
                 // Form data
                 harvester: '',
@@ -448,8 +441,8 @@
                     this.filteredVarieties.splice(index, 1);
                 },
                 
-                // Submit the form using direct fetch
-               submitForm() {
+                // Submit the form using fetch API
+                async submitForm() {
                     // Filter out empty entries
                     const validEntries = this.entries.filter(entry => 
                         entry.variety.trim() !== '' && entry.quantity > 0
@@ -465,25 +458,28 @@
                     this.isSubmitting = true;
                     this.errorMessage = '';
                     
-                    // Create URL with data
-                    let url = this.scriptUrl + '?harvester=' + encodeURIComponent(this.harvester);
-                    validEntries.forEach((entry, index) => {
-                        url += '&variety' + index + '=' + encodeURIComponent(entry.variety);
-                        url += '&quantity' + index + '=' + encodeURIComponent(entry.quantity);
-                    });
-                    url += '&count=' + validEntries.length;
-                    url += '&timestamp=' + new Date().getTime();
-                    
-                    // Submit via iframe
-                    const iframe = document.getElementById('hiddenIframe');
-                    iframe.src = url;
-                    
-                    // Show success after delay (iframe method doesn't give us response feedback)
-                    setTimeout(() => {
+                    try {
+                        const response = await fetch(this.firebaseUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                harvester: this.harvester,
+                                entries: validEntries
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Failed to submit harvest data');
+                        }
+                        
+                        // Success!
                         this.showSuccess = true;
-                        this.isSubmitting = false;
                         
                         // Reset form
+                        this.harvester = '';
                         this.entries = [{ variety: '', quantity: '' }];
                         this.showSuggestions = [false];
                         this.filteredVarieties = [tomatoVarieties];
@@ -492,7 +488,14 @@
                         setTimeout(() => {
                             this.showSuccess = false;
                         }, 4000);
-                    }, 2000);
+                        
+                    } catch (error) {
+                        console.error('Error submitting harvest:', error);
+                        this.errorMessage = error.message || 'Failed to submit harvest data. Please try again.';
+                        setTimeout(() => this.errorMessage = '', 6000);
+                    } finally {
+                        this.isSubmitting = false;
+                    }
                 }
             }
         }
