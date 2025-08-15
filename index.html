@@ -355,7 +355,6 @@
                 "Captain Lucky",
                 "Casey's Pure Yellow",
                 "Cherokee Purple",
-                "Crazy Green Giant",
                 "D Amy's Ohio",
                 "D Awesome",
                 "D CC McGee",
@@ -376,6 +375,7 @@
                 "Phoenix",
                 "Pink Brandywine",
                 "Polish",
+                "Polish (Grafted)",
                 "Sun Gold",
                 "Sweet Million"
             ];
@@ -431,6 +431,15 @@
                         this.entries.push({ variety: '', quantity: '' });
                         this.showSuggestions.push(false);
                         this.filteredVarieties.push(tomatoVarieties);
+                        
+                        // Auto-focus on the new variety input field
+                        this.$nextTick(() => {
+                            const varietyInputs = document.querySelectorAll('input[type="text"]');
+                            const newVarietyInput = varietyInputs[varietyInputs.length - 1];
+                            if (newVarietyInput) {
+                                newVarietyInput.focus();
+                            }
+                        });
                     }
                 },
                 
