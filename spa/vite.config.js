@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
+        claim: resolve(import.meta.dirname, 'claim.html'),
       },
     },
   },
