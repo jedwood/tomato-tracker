@@ -275,3 +275,113 @@ function copySeedlingsToNewYear(fromYear, toYear) {
   Logger.log('Created ' + toName + ' from ' + fromName);
   try { SpreadsheetApp.getUi().alert('Created ' + toName + '. Set Available counts and you\'re ready.'); } catch (e) {}
 }
+
+// ============================================================
+// ONE-TIME SEEDS — edit and run from the editor as needed
+// ============================================================
+
+/**
+ * Seed the 2026 Seedlings tab with this season's variety names.
+ *
+ * Idempotent: skips any variety name (case-insensitive trim match) that's
+ * already in the sheet. Only writes the Variety column — Available, Photo
+ * URL, Description, etc. are left blank for Jed to fill in.
+ *
+ * Run once from the editor: select seedVarieties2026 in the function
+ * dropdown → Run. Output goes to Execution log.
+ */
+function seedVarieties2026() {
+  // Source: Jed's 2026 plantings (paste from harvest meeting).
+  const VARIETIES_2026 = [
+    'Cherokee Purple',
+    'Polish',
+    'Green Giant',
+    'Captain Lucky',
+    'Pink Brandywine',
+    "Lillian's x Cherokee F3 PL",
+    'Lucky Cross',
+    'Yoders German Yellow',
+    'Mortgage Lifter',
+    "Casey's Pure Yellow",
+    'Amish Paste',
+    'Sungold',
+    'Blush',
+    'Italy Ridged',
+    'Italy Black Cherry',
+    'Italy Yellow Cherry',
+    'Dwarf Perfect Harmony',
+    'Dwarf Sonrojo (straw bale)',
+    'Mossy Oak',
+    'Kozula 179',
+    'Kozula 174',
+    'Kozula 156',
+    'Polaris',
+    'Tundra',
+    "Thornburn's Terracotta",
+    'Abraham Green',
+    'Abraham Brown',
+    'Beauty King x P20',
+    'Green Giant (OG)',
+    'Green Giant Variant 2025',
+    "Angelina's Heart",
+    'Eugenia',
+    "Arad's Heart",
+    'Cherokee Chocolate',
+    "Lillian's x Cherokee F2 x GG Variant #1",
+    "Lillian's x Cherokee F2 x GG Variant #2",
+    'Dwarf CC McGee'
+  ];
+
+  const sheet = getSheet_().getSheetByName('2026 Seedlings');
+  if (!sheet) throw new Error('2026 Seedlings tab missing — run setupAllSheetsHeadless first.');
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const varietyCol = headers.indexOf('Variety');
+  if (varietyCol < 0) throw new Error("'Variety' column missing on 2026 Seedlings");
+
+  // Build a lowercase set of existing variety names for dedupe.
+  const existing = new Set();
+  if (sheet.getLastRow() > 1) {
+    const col = sheet.getRange(2, varietyCol + 1, sheet.getLastRow() - 1, 1).getValues();
+    col.forEach(r => {
+      const v = String(r[0] || '').trim().toLowerCase();
+      if (v) existing.add(v);
+    });
+  }
+
+  const toAdd = [];
+  const skipped = [];
+  VARIETIES_2026.forEach(name => {
+    const norm = name.trim().toLowerCase();
+    if (!norm) return;
+    if (existing.has(norm)) {
+      skipped.push(name);
+      return;
+    }
+    existing.add(norm);
+    toAdd.push(name);
+  });
+
+  if (toAdd.length) {
+    const startRow = Math.max(2, sheet.getLastRow() + 1);
+    const numCols = headers.length;
+    const rows = toAdd.map(name => {
+      const row = new Array(numCols).fill('');
+      row[varietyCol] = name;
+      return row;
+    });
+    sheet.getRange(startRow, 1, rows.length, numCols).setValues(rows);
+  }
+
+  Logger.log('seedVarieties2026: added ' + toAdd.length + ', skipped (already present) ' + skipped.length);
+  if (toAdd.length) Logger.log('  added: ' + toAdd.join(', '));
+  if (skipped.length) Logger.log('  skipped: ' + skipped.join(', '));
+  try {
+    SpreadsheetApp.getUi().alert(
+      'Seeded 2026 varieties',
+      'Added ' + toAdd.length + ' new rows.\nSkipped ' + skipped.length + ' (already present).\nFill in Available counts and Photo URLs in the sheet.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  } catch (e) {}
+  return { added: toAdd, skipped };
+}
