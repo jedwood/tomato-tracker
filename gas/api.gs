@@ -222,6 +222,14 @@ const ACTIONS = {
     return clearColumnValidation_(tabName, columnName);
   },
 
+  // Removes columns from a tab (header + all data). Refuses to remove a
+  // column that has any non-blank cell unless `force: true`. Returns
+  // `{removed, kept, refused}`.
+  removeColumns: (identity, tabName, columnNames, opts) => {
+    requireAdmin_(identity);
+    return removeColumns_(tabName, columnNames || [], opts || {});
+  },
+
   // High-level: imports a foreign-sheet tab into our Varieties master,
   // upserting by Variety (case-insensitive trim). Auto-extracts IMAGE()
   // formula URLs into Photo URL. Returns `{added, updated, skipped}`.
@@ -526,6 +534,49 @@ function setCell_(range, value) {
   const r = ss.getRange(range);
   r.setValue(value);
   return { range, value: r.getValue() };
+}
+
+/**
+ * Remove columns from a tab. Safety: refuses to remove a column with any
+ * non-blank value unless `opts.force === true`. Removes from rightmost
+ * to leftmost so column indexes stay stable across deletions.
+ */
+function removeColumns_(tabName, columnNames, opts) {
+  const sheet = tabOrFail_(tabName);
+  const lastCol = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  if (lastCol < 1) return { removed: [], kept: [], refused: [] };
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  // Build list of (header, colIndex) for every column to remove that exists.
+  const targets = [];
+  const refused = [];
+  const kept = [];
+  columnNames.forEach(name => {
+    const idx = headers.indexOf(name);
+    if (idx < 0) {
+      kept.push({ name, reason: 'not present' });
+      return;
+    }
+    if (!opts.force && lastRow > 1) {
+      const colData = sheet.getRange(2, idx + 1, lastRow - 1, 1).getValues();
+      const hasData = colData.some(r => r[0] !== '' && r[0] != null);
+      if (hasData) {
+        refused.push({ name, reason: 'column has non-blank cells; pass force:true to override' });
+        return;
+      }
+    }
+    targets.push({ name, colIndex: idx + 1 });
+  });
+
+  // Delete rightmost-to-leftmost so column indexes don't shift under us.
+  targets.sort((a, b) => b.colIndex - a.colIndex);
+  const removed = [];
+  targets.forEach(t => {
+    sheet.deleteColumn(t.colIndex);
+    removed.push(t.name);
+  });
+  return { removed, kept, refused };
 }
 
 function clearColumnValidation_(tabName, columnName) {
