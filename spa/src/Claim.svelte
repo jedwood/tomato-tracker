@@ -167,9 +167,13 @@
         <div class="error__hd">Couldn't load the list.</div>
         <div class="error__body">{loadError}</div>
       </div>
-    {:else if inventory.length === 0}
+    {:else if !lastFetched}
       <div class="card">
         <div class="loading">Loading available varieties…</div>
+      </div>
+    {:else if inventory.length === 0}
+      <div class="card">
+        <div class="empty">No seedlings available right now. Check back later — Jed updates this list as transplants are ready.</div>
       </div>
     {:else}
       <div class="grid">
@@ -278,6 +282,13 @@
   .error__hd { font-weight: 600; color: #b3261e; margin-bottom: 6px; }
   .error__body { color: var(--text-muted); font-size: 14px; word-break: break-word; }
   .loading { padding: 32px; text-align: center; color: var(--text-subtle); }
+  .empty {
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.5;
+  }
 
   .grid {
     display: grid;
