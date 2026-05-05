@@ -103,22 +103,33 @@ The entire critical section runs inside `LockService.getScriptLock()` with a ~5s
 
 Two simultaneous claims for the last unit can't both succeed; the loser gets `STOCK_CHANGED` and the SPA re-renders.
 
-## clasp workflow
+## clasp workflow + auto-redeploy
 
-This host has clasp v3.x. **Every command needs `-u jed`.** Use the wrapper that bakes it in:
+This host has clasp v3.x. **Every command needs `-u jed`.** Use the wrapper that bakes it in (`/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp`).
 
-```bash
-/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp push --force      # push local → Apps Script
-/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp pull              # pull Apps Script → local
-/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp open              # open the editor in browser
-/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp deploy --description "v1 tomato api"
-```
+**Single-command redeploy:** `./scripts/redeploy.sh` from the repo root. It:
+1. `clasp push --force` — sync `gas/` to Apps Script HEAD.
+2. `./scripts/gas_deploy.py` — promote HEAD to the live `/exec` URL.
 
-(The wrapper resolves to `clasp -u jed <args>`.)
+`gas_deploy.py` calls the Apps Script REST API directly (`projects.versions.create` + `projects.deployments.update`). **Do not use `clasp deploy -i`** — see "The clasp v3 trap" below.
 
-Why `--force` on push: clasp v3 skips by default if remote changed since last push. If editing via the Apps Script web editor is possible, treat the local repo as source of truth and force-push.
+### The clasp v3 trap (DO NOT use `clasp deploy -i`)
 
-If push returns `invalid_grant / invalid_rapt`: only Jed can recover via `clasp login -u jed` (opens a browser).
+clasp's `deploy -i <id>` is broken for Web Apps and has been since 2017 (google/clasp#63). It strips the `WEB_APP` entry point on update, leaving the `/exec` URL serving 404. The fix is to bypass clasp and call the REST API directly with the right payload, which `gas_deploy.py` does.
+
+If you ever see the `/exec` URL returning 404 right after a redeploy, clasp's broken deploy is almost certainly the cause. Re-run `./scripts/redeploy.sh` — `gas_deploy.py` will repair the deployment by re-creating the WEB_APP entry via a new version.
+
+### Manifest invariants for auto-redeploy to work
+
+The `gas/appsscript.json` MUST:
+- Include a `webapp` block with `executeAs: USER_DEPLOYING` and `access: ANYONE_ANONYMOUS`.
+- NOT declare an explicit `oauthScopes` array (let GAS auto-detect; explicit scopes that haven't been granted by Jed will cause anonymous Web App calls to 403).
+
+If you need to add a new OAuth scope, the auto-detection covers it as long as the calling code uses the relevant API. Don't manually add scope strings to the manifest.
+
+### When auth breaks
+
+If push returns `invalid_grant` / `invalid_rapt`: only Jed can recover via `clasp login -u jed` (browser flow). gas_deploy.py also reads from `~/.clasprc.json` — same dependency.
 
 ## Forms — `spa/`
 

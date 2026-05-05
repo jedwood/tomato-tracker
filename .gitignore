@@ -2,3 +2,4 @@
 spa/.env
 spa/node_modules
 spa/dist
+scripts/__pycache__
