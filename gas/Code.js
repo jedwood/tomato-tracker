@@ -32,21 +32,35 @@ const TABLES = {
     }
   },
 
-  // Year-current source of truth for available seedlings + variety metadata.
-  // Year rollover next season: copySeedlingsToNewYear(2026, 2027) duplicates
-  // this tab and clears Available.
-  '2026 Seedlings': {
+  // Cross-year master list of every variety we've ever grown / known. The
+  // year-specific tabs (`2026 Seedlings`, etc.) reference this for
+  // descriptive metadata so we don't duplicate data across years.
+  // Variety is the primary key (case-insensitive trim match for upserts).
+  'Varieties': {
     headers: [
-      'Variety', 'Available', 'Photo URL', 'Photo Slug', 'Description',
-      'Days to Maturity', 'Color', 'Type', 'Source', 'Notes'
+      'Variety', 'Type', 'Color', 'Days to Maturity', 'Source',
+      'Description', 'Photo URL', 'Years Grown', 'Last Grown',
+      'Notes', 'External Notes', 'Imported From'
     ],
     colWidths: {
-      'Variety': 200, 'Available': 90, 'Photo URL': 280, 'Photo Slug': 160,
-      'Description': 360, 'Days to Maturity': 130, 'Color': 110,
-      'Type': 110, 'Source': 160, 'Notes': 320
-    },
-    validations: {
-      'Type': ['Cherry', 'Plum', 'Slicing', 'Beefsteak', 'Paste', 'Other']
+      'Variety': 220, 'Type': 110, 'Color': 100, 'Days to Maturity': 120,
+      'Source': 160, 'Description': 360, 'Photo URL': 260,
+      'Years Grown': 130, 'Last Grown': 110, 'Notes': 280,
+      'External Notes': 280, 'Imported From': 200
+    }
+    // No Type validation — source data has wide variation (heirloom, hybrid,
+    // indeterminate, dwarf, etc.). Free text is more useful than a strict
+    // controlled vocabulary at this stage.
+  },
+
+  // Year-specific seedling availability. Thin reference tab — descriptive
+  // metadata lives in Varieties master. Available is the only field Jed
+  // edits during the season; the variety name lookups Varieties.
+  // Year rollover next season: copySeedlingsToNewYear(2026, 2027).
+  '2026 Seedlings': {
+    headers: ['Variety', 'Available', 'Year Notes'],
+    colWidths: {
+      'Variety': 220, 'Available': 100, 'Year Notes': 320
     }
   },
 
