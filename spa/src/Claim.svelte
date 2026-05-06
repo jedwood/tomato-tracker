@@ -1,16 +1,23 @@
 <script>
+  import { onMount } from 'svelte';
   import { getInventory, submitClaim } from './lib/api.js';
 
   // ── State ─────────────────────────────────────────────────────────────
   let inventory = $state([]);          // [{variety, available, photoUrl, description, type, color}]
   let loadError = $state(null);
   let lastFetched = $state(null);
-  let booted = $state(false);
 
   let name = $state('');
   // claims: variety → quantity (only entries > 0 are submitted)
   let claims = $state({});
   let conflictHighlights = $state(new Set());
+  let expandedDescs = $state(new Set());
+
+  function toggleDesc(variety) {
+    const next = new Set(expandedDescs);
+    if (next.has(variety)) next.delete(variety); else next.add(variety);
+    expandedDescs = next;
+  }
 
   let isSubmitting = $state(false);
   let submitMessage = $state(null);    // {kind: 'ok'|'err', text: string}
@@ -42,9 +49,7 @@
     }
   }
 
-  $effect(() => {
-    if (booted) return;
-    booted = true;
+  onMount(() => {
     refreshInventory();
     const interval = setInterval(refreshInventory, POLL_INTERVAL_MS);
     const onVisibility = () => {
@@ -193,7 +198,14 @@
                 </p>
               {/if}
               {#if v.description}
-                <p class="variety__desc">{v.description}</p>
+                {@const isExpanded = expandedDescs.has(v.variety)}
+                {@const isLong = v.description.length > 150}
+                <p class="variety__desc" class:variety__desc--clamped={!isExpanded && isLong}>{v.description}</p>
+                {#if isLong}
+                  <button type="button" class="variety__more" onclick={() => toggleDesc(v.variety)}>
+                    {isExpanded ? 'Show less' : 'Show more'}
+                  </button>
+                {/if}
               {/if}
               <div class="variety__stepper">
                 <span class="variety__avail">{v.available} available</span>
@@ -349,12 +361,26 @@
     font-size: 13.5px;
     color: var(--text-muted);
     line-height: 1.5;
-    /* Clamp to 4 lines so cards stay roughly even. */
+  }
+  .variety__desc--clamped {
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .variety__more {
+    align-self: flex-start;
+    margin: -2px 0 0;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    color: var(--primary-from);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .variety__more:hover { text-decoration: underline; }
   .variety__stepper {
     display: flex;
     align-items: center;
