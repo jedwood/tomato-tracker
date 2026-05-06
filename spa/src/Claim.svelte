@@ -180,7 +180,7 @@
         {#each inventory as v (v.variety)}
           {@const qty = claims[v.variety] || 0}
           <div class="card variety" class:variety--conflict={conflictHighlights.has(v.variety)}>
-            {#if v.photoUrl && v.photoUrl !== 'n/a'}
+            {#if v.photoUrl && String(v.photoUrl).trim().toLowerCase() !== 'n/a'}
               <img class="variety__photo" src={v.photoUrl} alt={v.variety} loading="lazy" />
             {:else}
               <div class="variety__photo variety__photo--placeholder">🍅</div>
