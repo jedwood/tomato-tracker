@@ -515,7 +515,7 @@ function listVarietiesJoined_(year) {
 
 function getInventoryJoined_(year) {
   return listVarietiesJoined_(year)
-    .filter(v => v.Available > 1)
+    .filter(v => v.Available > 0)
     .map(v => ({
       variety: v.Variety,
       available: v.Available,

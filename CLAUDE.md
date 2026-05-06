@@ -168,11 +168,36 @@ gh api repos/jedwood/tomato-tracker/pages   # current config
 
 The bookmarked URL (https://jedwood.github.io/tomato-tracker/) is **overwritten in place** when the new SPA deploys. No redirect needed; the new harvest form replaces the old single-page form transparently.
 
-## Photos
+## Photos — self-hosted on GitHub Pages
 
-Public Drive folder, anyone-with-link sharing. `sync_variety_photos.py` uploads local jpgs from `$JEDOS_VAULT/_state/craig/photos/varieties/<slug>.jpg`, sets the share, and writes the resulting URL into the `Photo URL` column on `2026 Seedlings`.
+Photos live at `tomato-tracker/photos/<slug>.<ext>` and are served from `https://jedwood.github.io/tomato-tracker/photos/<slug>.<ext>` (same Pages site as the SPAs). Sheet's `Photo URL` column points at the GH Pages URL.
 
-If Drive's anonymous hotlink starts rate-limiting in real use, migrate to Firebase Storage with public-read on `tomato-photos/`. Same project as the SPA. Document the cutover here when it happens.
+`scripts/save_photo.py` is the all-purpose tool:
+
+```bash
+# Direct image URL (right-click → Copy Image Address from your browser):
+./scripts/save_photo.py "Dwarf Sonrojo (straw bale)" --url https://...image.jpg
+
+# Page URL — opens via playwright, extracts og:image / twitter:image / largest <img>:
+./scripts/save_photo.py "Cherokee Purple" --page https://victoryseeds.com/...
+# (page mode falls back if the page is anti-bot-blocked — use --url instead.)
+
+# Migrate any remote-hosted Photo URLs (sheetsz, wikipedia, etc.) into self-hosted:
+./scripts/save_photo.py --migrate-existing
+
+# Stage photos/ and commit (and optionally push to deploy):
+./scripts/save_photo.py --commit --push
+```
+
+Slug = lowercased variety name with non-word chars → `-`. Extension is sniffed from `Content-Type` (image/jpeg → `.jpg`, etc).
+
+### Anti-bot fallback
+
+Some seed-vendor sites (Victory Seeds, etc.) block headless browsers. If `--page` returns the "Something went wrong" page, open the URL in a real browser (Safari/Chrome you're already signed into), right-click the main image, **Copy Image Address**, and run with `--url <that direct URL>`.
+
+### Why GH Pages instead of Drive / Firebase Storage
+
+The SPA is already on GH Pages, so adding `photos/` is zero new infra. Drive's anonymous hotlinks rate-limit aggressively; Firebase Storage would add another deploy surface. Repo size is small (~10MB even with 100+ photos).
 
 ## Verification (Showboat)
 
