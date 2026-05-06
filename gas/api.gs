@@ -239,6 +239,13 @@ const ACTIONS = {
     return removeColumns_(tabName, columnNames || [], opts || {});
   },
 
+  // Delete rows by key value (case-insensitive trim match on the key column).
+  // `keyValues` is an array. Returns `{deleted, notFound}`.
+  deleteRowsByKey: (identity, tabName, keyColumn, keyValues) => {
+    requireAdmin_(identity);
+    return deleteRowsByKey_(tabName, keyColumn, keyValues || []);
+  },
+
   // High-level: imports a foreign-sheet tab into our Varieties master,
   // upserting by Variety (case-insensitive trim). Auto-extracts IMAGE()
   // formula URLs into Photo URL. Returns `{added, updated, skipped}`.
@@ -649,6 +656,46 @@ function removeColumns_(tabName, columnNames, opts) {
     removed.push(t.name);
   });
   return { removed, kept, refused };
+}
+
+/**
+ * Delete data rows whose key column matches any of `keyValues`
+ * (case-insensitive trim). Iterates rightmost-first so row indices stay
+ * stable. Returns `{deleted: [string], notFound: [string]}`.
+ */
+function deleteRowsByKey_(tabName, keyColumn, keyValues) {
+  const sheet = tabOrFail_(tabName);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { deleted: [], notFound: keyValues.slice() };
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const keyIdx = headers.indexOf(keyColumn);
+  if (keyIdx < 0) throw withCode_('NOT_FOUND', "key column '" + keyColumn + "' not on " + tabName);
+
+  // Wanted set, lowercased.
+  const wanted = {};
+  keyValues.forEach(k => {
+    const norm = String(k || '').trim().toLowerCase();
+    if (norm) wanted[norm] = k;
+  });
+
+  // Walk data rows; collect rownums of matches.
+  const data = sheet.getRange(2, keyIdx + 1, lastRow - 1, 1).getValues();
+  const matches = [];
+  data.forEach((r, i) => {
+    const norm = String(r[0] || '').trim().toLowerCase();
+    if (norm && norm in wanted) {
+      matches.push({ rowNum: i + 2, original: wanted[norm] });
+      delete wanted[norm];
+    }
+  });
+  // Delete bottom-up.
+  matches.sort((a, b) => b.rowNum - a.rowNum);
+  matches.forEach(m => sheet.deleteRow(m.rowNum));
+  return {
+    deleted: matches.map(m => m.original),
+    notFound: Object.values(wanted)
+  };
 }
 
 function clearColumnValidation_(tabName, columnName) {
