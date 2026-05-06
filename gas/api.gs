@@ -193,6 +193,15 @@ const ACTIONS = {
     return readForeignSheet_(sourceSheetId, sourceTabName);
   },
 
+  // Extract URLs from cells with embedded "Insert Image in Cell" images
+  // (CellImage objects). Returns `{[keyValue]: {url, altText}}` keyed by
+  // the value of `keyColumn`. Use to pull photos out of a foreign sheet
+  // where the image was uploaded inline rather than referenced via IMAGE().
+  extractForeignSheetImages: (identity, sourceSheetId, sourceTabName, keyColumn, imageColumn) => {
+    requireAdmin_(identity);
+    return extractForeignSheetImages_(sourceSheetId, sourceTabName, keyColumn, imageColumn);
+  },
+
   // Append rows to ANY of our tabs. `rows` is array of objects keyed by
   // header. Missing keys → blank. Extra keys → ignored.
   addRows: (identity, tabName, rows) => {
@@ -354,6 +363,69 @@ function readForeignSheet_(sourceSheetId, sourceTabName) {
     if (imageHere) photoFormulas[r - 1] = imageHere;
   }
   return { headers, rows, photoFormulas };
+}
+
+/**
+ * Pull URLs from "Insert Image in Cell" embedded images in a foreign
+ * spreadsheet. Returns `{rows: [{key, url, altText}], failures: []}`.
+ *
+ * For each non-empty row, we read the imageColumn cell as a CellImage
+ * object (sheet.getRange(...).getValue() returns a CellImage when the
+ * cell has an inline image). CellImage exposes:
+ *   - getUrl()         → original source URL if the image was inserted
+ *                        from a URL; null for uploads.
+ *   - getContentUrl()  → temporary Google-hosted URL (short-lived).
+ *   - getAltTextDescription() / getAltTextTitle()
+ *
+ * For uploads (the common case in Jed's source sheet), getUrl() returns
+ * null, so we fall back to getContentUrl() and the caller is responsible
+ * for either using the temp URL while it's fresh, or rehosting elsewhere.
+ */
+function extractForeignSheetImages_(sourceSheetId, sourceTabName, keyColumn, imageColumn) {
+  const ss = SpreadsheetApp.openById(sourceSheetId);
+  const sheet = ss.getSheetByName(sourceTabName);
+  if (!sheet) throw withCode_('NOT_FOUND', "foreign tab '" + sourceTabName + "' missing");
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { rows: [], failures: [] };
+
+  const headerRange = sheet.getRange(1, 1, 1, lastCol);
+  const headers = headerRange.getValues()[0];
+  const keyIdx = headers.indexOf(keyColumn);
+  const imgIdx = headers.indexOf(imageColumn);
+  if (keyIdx < 0) throw withCode_('NOT_FOUND', "key column '" + keyColumn + "' not in source");
+  if (imgIdx < 0) throw withCode_('NOT_FOUND', "image column '" + imageColumn + "' not in source");
+
+  const rows = [];
+  const failures = [];
+  for (let r = 2; r <= lastRow; r++) {
+    const keyVal = String(sheet.getRange(r, keyIdx + 1).getValue() || '').trim();
+    if (!keyVal) continue;
+    const imgCell = sheet.getRange(r, imgIdx + 1);
+    const imgVal = imgCell.getValue();
+    if (!imgVal || typeof imgVal !== 'object') {
+      // Empty cell or plain text — skip silently.
+      continue;
+    }
+    try {
+      // CellImage methods. Try original URL first, fall back to content URL.
+      let url = null, altText = '';
+      if (typeof imgVal.getUrl === 'function') url = imgVal.getUrl();
+      if (!url && typeof imgVal.getContentUrl === 'function') url = imgVal.getContentUrl();
+      if (typeof imgVal.getAltTextDescription === 'function') {
+        altText = imgVal.getAltTextDescription() || '';
+      }
+      if (url) {
+        rows.push({ key: keyVal, url, altText });
+      } else {
+        failures.push({ key: keyVal, reason: 'no URL accessible from CellImage' });
+      }
+    } catch (err) {
+      failures.push({ key: keyVal, reason: String(err) });
+    }
+  }
+  return { rows, failures };
 }
 
 /**
