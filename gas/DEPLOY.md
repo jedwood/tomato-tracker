@@ -1,83 +1,72 @@
 # Deploying the Tomato Tracker GAS web app
 
-This script project (id `1Cw1Y1GR65_CUDzFpvP72GeCr9MREBY8Lf_St2gqokph-CvY_94woTqS4`) is **standalone**, but reads/writes the live Tomato Tracker spreadsheet via `SpreadsheetApp.openById(SHEET_ID)`. The bound spreadsheet that clasp accidentally created (`1Y5mjMs…`) is unused and can be trashed in Drive.
+The deploy/redeploy workflow, clasp-v3 trap, manifest invariants, and auth-recovery
+notes all live in **[`../CLAUDE.md`](../CLAUDE.md)** under "clasp workflow + auto-redeploy".
+The canonical jedOS-wide pattern (CORS shape, `doPost` dispatch, why `clasp run`
+doesn't work, REST-API redeploy) is at
+`/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/.claude/skills/gas-clasp/SKILL.md`.
+Read those first; what's below is only the project-specific bits that aren't covered there.
 
-## Prerequisites
+## Project facts
 
-- clasp v3 installed (`/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp` baked in `-u jed`)
-- Logged in as Jed (`clasp login -u jed` if `invalid_grant`)
+- Script ID: `1Cw1Y1GR65_CUDzFpvP72GeCr9MREBY8Lf_St2gqokph-CvY_94woTqS4`
+- **Standalone** script — reaches the live sheet via `SpreadsheetApp.openById(SHEET_ID)`.
+  A bound spreadsheet (`1Y5mjMs…`) that clasp accidentally created when the project was
+  first scaffolded is unused and safe to trash in Drive.
+- Bypass-token Script Properties: `HARVEST_BYPASS_TOKEN`, `CLAIMS_BYPASS_TOKEN`,
+  `DEV_BYPASS_TOKEN`. Each is bound to an action allowlist in `api.gs` (see CLAUDE.md
+  "Identities" table).
 
-## First-time setup
+## One-time bootstrap
 
-1. **Push code** to the script project:
-
-   ```bash
-   cd tomato-tracker/gas
-   /Volumes/OLAF\ EXT/jedwoodx/repos/jedOS/bin/clasp push --force
-   ```
-
-2. **Set Script Properties** for the bypass tokens. From the Apps Script editor → Project Settings → Script Properties → Add property. Generate long random strings (e.g. `openssl rand -hex 32`):
-
-   | Property | Value |
-   |---|---|
-   | `HARVEST_BYPASS_TOKEN` | (32+ char random) — bundled into `spa/index.html` build |
-   | `CLAIMS_BYPASS_TOKEN`  | (32+ char random) — bundled into `spa/claim.html` build |
-   | `DEV_BYPASS_TOKEN`     | (32+ char random) — used by craig and admin actions |
-
-   Save these into `tomato-tracker/.env` (gitignored) and `$JEDOS_VAULT/_config/craig.env`.
-
-3. **Run `setupAllSheets`** once via the Apps Script editor:
-   - `bin/clasp open` (opens the editor in browser)
-   - Select `setupAllSheets` from the function dropdown
-   - Click Run; approve the scope grant on first invocation
-   - Confirm the destructive dialog
-   - Verify in the spreadsheet that `Harvest Data`, `2026 Seedlings`, `Seedling Claims` are populated with headers; `Dashboard` is untouched
-
-4. **Deploy as Web App**:
-
-   ```bash
-   /Volumes/OLAF\ EXT/jedwoodx/repos/jedOS/bin/clasp deploy --description "v1 tomato api"
-   ```
-
-   The deploy URL is `https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec`. Save it in `tomato-tracker/.env` as `GAS_DEPLOYMENT_URL` and in `$JEDOS_VAULT/_config/craig.env` as `GAS_DEPLOYMENT_URL`.
-
-5. **Smoke-test ping**:
-
-   ```bash
-   curl -s -X POST "$GAS_DEPLOYMENT_URL" \
-     -H "Content-Type: text/plain;charset=utf-8" \
-     -d '{"action":"ping","token":"'"$DEV_BYPASS_TOKEN"'"}'
-   # → {"ok":true,"result":{"user":"jed@limechile.com","ts":"..."}}
-   ```
-
-   And verify auth boundary:
-   ```bash
-   curl -s -X POST "$GAS_DEPLOYMENT_URL" \
-     -H "Content-Type: text/plain;charset=utf-8" \
-     -d '{"action":"submitClaim","token":"'"$HARVEST_BYPASS_TOKEN"'","args":[{"name":"X","entries":[]}]}'
-   # → {"ok":false,"code":"NO_ACCESS","error":"harvest identity may not call submitClaim"}
-   ```
-
-## Re-deploys
-
-After editing `Code.js` or `api.gs`:
+Tokens are self-minted by `doGet?bootstrap=1`. After the first `clasp push` + REST
+deploy:
 
 ```bash
-cd tomato-tracker/gas
-/Volumes/OLAF\ EXT/jedwoodx/repos/jedOS/bin/clasp push --force
-/Volumes/OLAF\ EXT/jedwoodx/repos/jedOS/bin/clasp deploy --description "<change summary>"
+curl -s "$GAS_DEPLOYMENT_URL?bootstrap=1"
+# → {"ok":true,"result":{"tokens":{HARVEST_BYPASS_TOKEN,CLAIMS_BYPASS_TOKEN,DEV_BYPASS_TOKEN},...}}
 ```
 
-The deployment URL stays the same (clasp updates the `HEAD` deployment in place). Previous deployment IDs are preserved for rollback in the Apps Script editor → Manage Deployments.
+Tokens are returned exactly once. Save them into `tomato-tracker/.env` and
+`$JEDOS_VAULT/_config/craig.env`. Subsequent calls to `?bootstrap=1` refuse with
+`ALREADY_BOOTSTRAPPED`. (The existing `.env` was generated this way — see
+the `# Generated 2026-05-05 via /exec?bootstrap=1` comment.)
 
-## Schema migrations
+No editor visit is needed for token setup. The only manual step the first deploy
+ever requires is the one-time OAuth consent click that Google forces on the
+unverified-app screen.
 
-- Adding a column: edit `TABLES[name].headers` in `Code.js`, push, run `addMissingColumns()` from the editor (additive, idempotent, never destroys data).
-- **Don't run `setupAllSheets()` on a populated sheet** — it clears every declared tab.
-- Year rollover: `copySeedlingsToNewYear(2026, 2027)` from the editor.
+## Smoke tests
 
-## Recovery
+Use `scripts/api_call.py` — it follows the 302 from `/exec` correctly (curl `-L`
+forwards `Content-Type` to the content server and gets rejected; see SKILL.md
+"CORS + the 302 redirect"):
 
-If something goes wrong on the spreadsheet, Google Sheets keeps full revision history at File → Version history (⌘+Opt+Shift+H). Restore the version immediately before the bad operation.
+```bash
+./scripts/api_call.py ping
+# → {"ok":true,"result":{"user":"jed@limechile.com","ts":"..."}}
 
-If `clasp push` returns `invalid_grant / invalid_rapt`, only Jed can recover via `clasp login -u jed` (opens a browser).
+# auth boundary: harvest token can't call submitClaim
+./scripts/api_call.py submitClaim '[{"name":"X","entries":[]}]' --token-env=HARVEST_BYPASS_TOKEN
+# → {"ok":false,"code":"NO_ACCESS","error":"harvest identity may not call submitClaim"}
+```
+
+## Schema bootstrap + migrations
+
+Three entry points sit in front of the same underlying logic:
+
+| Function | Surface | Behavior |
+|---|---|---|
+| `setupAllSheetsWithPrompt` | Apps Script editor (UI) | Shows a `YES_NO` dialog before clearing every declared tab. First-time setup. |
+| `setupAllSheetsHeadless`   | Internal               | Same destructive `sheet.clear()` work, no dialog. Called by the doPost dispatch. |
+| `setupAllSheetsAction`     | `doPost` action         | Admin-only (`DEV_BYPASS_TOKEN`) dispatch that invokes `setupAllSheetsHeadless`. |
+
+Run **once**, on an empty sheet. After that:
+
+- **Add a column** → edit `TABLES[name].headers` in `Code.js`, push, then
+  `./scripts/api_call.py addMissingColumnsAction` (or run `addMissingColumns()`
+  from the editor). Additive and idempotent — never touches existing data.
+- **Year rollover** → `./scripts/api_call.py copySeedlingsToNewYearAction '[{"fromYear":2026,"toYear":2027}]'`.
+- **Never** re-run `setupAllSheets*` against a populated sheet — it wipes every
+  declared tab. If it does run by accident, restore via Sheets → File → Version history
+  (⌘+Opt+Shift+H).
