@@ -7,7 +7,7 @@ For full architecture, deploy steps, and the GAS API contract, read **`CLAUDE.md
 ## Quick links
 
 - Sheet: <https://docs.google.com/spreadsheets/d/1Fukctm2sh8TekisGromdCbFpKYeGzOVq1aIyG8NbdZE/edit>
-- Sister agent (knowledge / curation): `/Volumes/OLAF EXT/jedwoodx/repos/jedOS/.claude/agents/craig/`
+- Sister agent (knowledge / curation): `/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/.claude/agents/craig/`
 - Pattern reference (GAS): `.claude/agents/sam-bot/scripts/ward-sheets/` in jedOS
 
 ## Layout

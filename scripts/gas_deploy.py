@@ -36,7 +36,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = REPO_ROOT / '.env'
 CLASPRC_PATH = Path.home() / '.clasprc.json'
-CLASP_BIN = '/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp'
+CLASP_BIN = '/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/bin/clasp'
 
 # Clasp v3 ships with these public OAuth client values baked into its source
 # (https://github.com/google/clasp/blob/main/src/auth.ts). They're not secrets

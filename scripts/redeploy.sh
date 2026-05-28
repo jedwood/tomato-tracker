@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLASP="/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp"
+CLASP="/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/bin/clasp"
 
 cd "$REPO_ROOT/gas"
 "$CLASP" push --force

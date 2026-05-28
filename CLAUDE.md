@@ -105,7 +105,7 @@ Two simultaneous claims for the last unit can't both succeed; the loser gets `ST
 
 ## clasp workflow + auto-redeploy
 
-This host has clasp v3.x. **Every command needs `-u jed`.** Use the wrapper that bakes it in (`/Volumes/OLAF EXT/jedwoodx/repos/jedOS/bin/clasp`).
+This host has clasp v3.x. **Every command needs `-u jed`.** Use the wrapper that bakes it in (`/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/bin/clasp`).
 
 **Single-command redeploy:** `./scripts/redeploy.sh` from the repo root. It:
 1. `clasp push --force` — sync `gas/` to Apps Script HEAD.
@@ -212,7 +212,7 @@ Each meaningful checkpoint produces a `demos/NN-<name>.md` Showboat demo with sh
 
 ## Pointers
 
-- **Knowledge & curation** (Craig's blog, varieties, playbooks, season retros) → `craig` agent in `/Volumes/OLAF EXT/jedwoodx/repos/jedOS/.claude/agents/craig/`
+- **Knowledge & curation** (Craig's blog, varieties, playbooks, season retros) → `craig` agent in `/Volumes/OLAF-EXT/jedwoodx/repos/jedOS/.claude/agents/craig/`
 - **Reference for GAS pattern** → `.claude/agents/sam-bot/scripts/ward-sheets/` in jedOS (Code.js, api.gs, CLAUDE.md, DEPLOY.md). This repo's `gas/` is a deliberate port of that pattern.
 - **Reference for SPA pattern** → `spa/ward-music/` in jedOS
 
