@@ -1,10 +1,19 @@
 <script>
   import { listVarieties, submitHarvest } from './lib/api.js';
 
+  const GROWERS = ['Jed', 'Ryan', 'Mom'];
+
+  // ?g=jed|ryan|mom pre-selects the grower. Unknown/missing → show the picker.
+  function growerFromUrl() {
+    const slug = (new URLSearchParams(window.location.search).get('g') || '')
+      .trim().toLowerCase();
+    return GROWERS.find((g) => g.toLowerCase() === slug) || '';
+  }
+
   // ── Form state ────────────────────────────────────────────────────────
   // The last row is always a "fresh" empty row; as soon as the user types
   // a variety + quantity into it, we append a new fresh row underneath.
-  let harvester = $state('');
+  let harvester = $state(growerFromUrl());
   let entries = $state([blankEntry()]);
   let openSuggestionsFor = $state(-1);
 
@@ -15,18 +24,47 @@
 
   function blankEntry() { return { variety: '', quantity: '' }; }
 
-  // Fetch the variety list once on boot. If listVarieties returns [] (sheet
-  // not yet seeded), the autocomplete is just a free-text field — that's fine.
-  $effect(() => {
-    listVarieties()
+  // ── Variety loading: cache-first, then revalidate ───────────────────────
+  // The whole point of the harvest form is near-zero friction on mobile, so
+  // we never block on the network. localStorage holds the last list per
+  // grower; on load we render it instantly, then refresh in the background
+  // and update silently if the sheet changed. The cache key is per-grower
+  // because each grower's list is scoped to the varieties they claimed.
+  const cacheKey = (g) => `tt:varieties:${g || 'all'}`;
+  function readCache(g) {
+    try {
+      const raw = localStorage.getItem(cacheKey(g));
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function writeCache(g, list) {
+    try { localStorage.setItem(cacheKey(g), JSON.stringify(list)); } catch {}
+  }
+
+  // Guards against a stale background fetch clobbering the list after the
+  // grower has changed (e.g. user taps a different name mid-flight).
+  let loadSeq = 0;
+  function loadVarieties(grower) {
+    const seq = ++loadSeq;
+    const cached = readCache(grower);
+    if (cached) { varieties = cached; varietiesError = null; }
+    listVarieties(grower || undefined)
       .then((rows) => {
-        varieties = rows
-          .map((r) => r.Variety)
-          .filter(Boolean)
+        if (seq !== loadSeq) return;
+        const list = rows.map((r) => r.Variety).filter(Boolean)
           .sort((a, b) => a.localeCompare(b));
+        varieties = list;
+        varietiesError = null;
+        writeCache(grower, list);
       })
-      .catch((err) => { varietiesError = err.message || String(err); });
-  });
+      .catch((err) => {
+        if (seq !== loadSeq) return;
+        if (!cached) varietiesError = err.message || String(err);
+      });
+  }
+
+  // Reload whenever the selected grower changes (URL slug or picker tap).
+  $effect(() => { loadVarieties(harvester || ''); });
 
   function suggestionsFor(text) {
     const q = String(text || '').trim().toLowerCase();
@@ -102,7 +140,7 @@
     <div class="harvester">
       <span class="lbl">Who's harvesting?</span>
       <div class="harvester__opts">
-        {#each ['Jed', 'Ryan'] as name}
+        {#each GROWERS as name}
           <label class="opt" class:opt--on={harvester === name}>
             <input type="radio" name="harvester" value={name} bind:group={harvester} />
             <span class="opt__name">{name}</span>

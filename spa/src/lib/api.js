@@ -33,7 +33,9 @@ const HARVEST_TOKEN = import.meta.env.VITE_HARVEST_TOKEN;
 const CLAIMS_TOKEN  = import.meta.env.VITE_CLAIMS_TOKEN;
 
 export const ping = () => call('ping', HARVEST_TOKEN);
-export const listVarieties = () => call('listVarieties', HARVEST_TOKEN);
+// `grower` (optional) scopes the list to varieties that grower claimed.
+export const listVarieties = (grower) =>
+  call('listVarieties', HARVEST_TOKEN, grower ? [null, grower] : []);
 export const submitHarvest = (payload) => call('submitHarvest', HARVEST_TOKEN, [payload]);
 
 export const getInventory = () => call('getInventory', CLAIMS_TOKEN);

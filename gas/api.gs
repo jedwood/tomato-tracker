@@ -154,7 +154,12 @@ const ACTIONS = {
   // Lists all varieties from the Varieties master, joined with the current
   // year's Available count (and Year Notes). Used by harvest form
   // autocomplete and by craig agent for variety questions.
-  listVarieties: (identity, year) => listVarietiesJoined_(year || CURRENT_YEAR),
+  //
+  // Optional `grower` (3rd arg) scopes the list to the varieties that grower
+  // claimed in the Seedling Claims tab — used by the per-grower harvest form
+  // (?g=jed). Unset → full master list (unchanged behavior).
+  listVarieties: (identity, year, grower) =>
+    listVarietiesJoined_(year || CURRENT_YEAR, grower),
 
   // Slim `[{variety, available, photoUrl, description, color, type}]`
   // shape for the claim form. Only varieties with available > 1 are
@@ -468,7 +473,7 @@ function getSheetMetadata_() {
  * to the claim form (needs photo + description). Ordered alphabetically
  * by Variety.
  */
-function listVarietiesJoined_(year) {
+function listVarietiesJoined_(year, grower) {
   const ss = getSheet_();
   const masterSheet = ss.getSheetByName('Varieties');
   if (!masterSheet) return [];  // no master yet — empty list (form falls back to free text)
@@ -477,6 +482,9 @@ function listVarietiesJoined_(year) {
 
   const master = readTab_('Varieties', {});
   const seedling = seedSheet ? readTab_(seedlingTab, {}) : { rows: [] };
+
+  // If scoped to a grower, restrict to the varieties they claimed.
+  const claimed = grower ? claimedVarietiesFor_(grower) : null;
 
   // Build availability map from the seedling tab.
   const seedMap = {};
@@ -489,7 +497,7 @@ function listVarietiesJoined_(year) {
     };
   });
 
-  return master.rows
+  const joined = master.rows
     .filter(r => String(r['Variety'] || '').trim())
     .map(r => {
       const name = String(r['Variety']).trim();
@@ -509,8 +517,36 @@ function listVarietiesJoined_(year) {
         Available: seed.available,
         YearNotes: seed.yearNotes
       };
-    })
-    .sort((a, b) => a.Variety.localeCompare(b.Variety));
+    });
+
+  if (claimed) {
+    const inMaster = new Set(joined.map(v => v.Variety.toLowerCase()));
+    const scoped = joined.filter(v => claimed.has(v.Variety.toLowerCase()));
+    // A grower may have claimed a variety that isn't in the Varieties master
+    // (typo, or a one-off). Surface it anyway so their harvest list is complete.
+    claimed.forEach((display, key) => {
+      if (!inMaster.has(key)) scoped.push({ Variety: display, Available: 0 });
+    });
+    return scoped.sort((a, b) => a.Variety.localeCompare(b.Variety));
+  }
+
+  return joined.sort((a, b) => a.Variety.localeCompare(b.Variety));
+}
+
+// Distinct varieties a grower claimed in the Seedling Claims tab. Returns a
+// Map of lowercased-name → original-cased display name (for case-insensitive
+// matching against the Varieties master while preserving display casing).
+function claimedVarietiesFor_(grower) {
+  const target = String(grower || '').trim().toLowerCase();
+  const out = new Map();
+  if (!target) return out;
+  const claims = readTab_('Seedling Claims', {});
+  claims.rows.forEach(r => {
+    if (String(r['Name'] || '').trim().toLowerCase() !== target) return;
+    const v = String(r['Variety'] || '').trim();
+    if (v) out.set(v.toLowerCase(), v);
+  });
+  return out;
 }
 
 function getInventoryJoined_(year) {
