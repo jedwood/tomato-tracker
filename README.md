@@ -17,7 +17,7 @@ gas/        Apps Script project (clasp; ward-sheets pattern)
 spa/        Vite + Svelte forms — /harvest and /claim
 scripts/    CLI helpers (Python via .venv/bin/python3)
 archive/    Original 2024 single-page form, preserved for reference
-demos/      Showboat verification demos
+demos/      Verification demos
 ```
 
 ## Status
