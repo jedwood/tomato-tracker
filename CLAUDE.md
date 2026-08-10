@@ -29,7 +29,7 @@ tomato-tracker/
     sync_variety_photos.py
     deploy-firebase.mjs
   archive/             # the original 2024 single-page form, preserved for reference
-  demos/               # verification demos (one per checkpoint)
+  demos/               # Showboat verification demos (one per checkpoint)
   .env.example
 ```
 
@@ -199,9 +199,9 @@ Some seed-vendor sites (Victory Seeds, etc.) block headless browsers. If `--page
 
 The SPA is already on GH Pages, so adding `photos/` is zero new infra. Drive's anonymous hotlinks rate-limit aggressively; Firebase Storage would add another deploy surface. Repo size is small (~10MB even with 100+ photos).
 
-## Verification
+## Verification (Showboat)
 
-Each meaningful checkpoint produces a `demos/NN-<name>.md` demo with shell + DOM + screenshot evidence. Committed alongside the code change. Existing demos were built with the retired Showboat/Rodney toolchain — treat them as archived evidence, not re-runnable; use Playwright for new browser verification. Demo numbers map to the build-sequence step from the plan:
+Each meaningful checkpoint produces a `demos/NN-<name>.md` Showboat demo with shell + DOM + screenshot evidence. Committed alongside the code change. Existing demos used the retired Rodney browser driver — their browser blocks are archived evidence, not re-runnable; new browser steps use Playwright (see the showboat skill). Demo numbers map to the build-sequence step from the plan:
 
 - `04-setup-sheets.md` — tabs created with correct headers; Dashboard untouched
 - `05-gas-deploy.md` — `/exec` ping + auth-boundary checks
