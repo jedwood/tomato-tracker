@@ -3,6 +3,45 @@
 
   const GROWERS = ['Jed', 'Ryan', 'Mom'];
 
+  // Per-grower harvest lists for the 2026 season. Curated by hand (not derived
+  // from the claims log, which went stale once plants died / were added outside
+  // the seedling swap). Names must match the Varieties master exactly so the
+  // strings written to Harvest Data resolve for reporting. Growers without an
+  // entry here (Mom) fall back to the full variety master.
+  const GROWER_LISTS = {
+    Jed: [
+      'Captain Lucky',
+      'Polish graft',
+      "Yoder's German Yellow",
+      'Eugenia',
+      "Angelina's Heart",
+      "Lillian's x Cherokee F2 x GG Variant #2",
+      'Green Giant (OG)',
+      'Green Giant Variant 2025',
+      'Cherokee Purple graft',
+      'Polaris',
+    ],
+    Ryan: [
+      'Cherokee Purple',
+      'Polish',
+      'Polish graft',
+      'Lucky Cross',
+      "Casey's Pure Yellow",
+      'Sungold',
+      'Kozula 156',
+      'Polaris',
+      "Arad's Heart",
+      'Beauty King x P20',
+      'Dwarf Perfect Harmony',
+      'Pink Brandywine',
+      'Celebrity',
+      'Fourth of July',
+      'Better Boy Plus',
+      'Supersteak',
+      'Hamson DX-52',
+    ],
+  };
+
   // ?g=jed|ryan|mom pre-selects the grower. Unknown/missing → show the picker.
   function growerFromUrl() {
     const slug = (new URLSearchParams(window.location.search).get('g') || '')
@@ -24,12 +63,11 @@
 
   function blankEntry() { return { variety: '', quantity: '' }; }
 
-  // ── Variety loading: cache-first, then revalidate ───────────────────────
-  // The whole point of the harvest form is near-zero friction on mobile, so
-  // we never block on the network. localStorage holds the last list per
-  // grower; on load we render it instantly, then refresh in the background
-  // and update silently if the sheet changed. The cache key is per-grower
-  // because each grower's list is scoped to the varieties they claimed.
+  // ── Variety loading ─────────────────────────────────────────────────────
+  // Curated growers (see GROWER_LISTS) render instantly from the bundled list —
+  // no network at all. Growers without a curated list (Mom) fall back to the
+  // full variety master, cached in localStorage so mobile loads stay snappy:
+  // render the cached list immediately, then revalidate in the background.
   const cacheKey = (g) => `tt:varieties:${g || 'all'}`;
   function readCache(g) {
     try {
@@ -46,9 +84,16 @@
   let loadSeq = 0;
   function loadVarieties(grower) {
     const seq = ++loadSeq;
+    // Curated list → use it directly, no network, no claims dependency.
+    const curated = GROWER_LISTS[grower];
+    if (curated) {
+      varieties = [...curated].sort((a, b) => a.localeCompare(b));
+      varietiesError = null;
+      return;
+    }
     const cached = readCache(grower);
     if (cached) { varieties = cached; varietiesError = null; }
-    listVarieties(grower || undefined)
+    listVarieties()
       .then((rows) => {
         if (seq !== loadSeq) return;
         const list = rows.map((r) => r.Variety).filter(Boolean)

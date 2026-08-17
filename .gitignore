@@ -3,3 +3,6 @@ spa/.env
 spa/node_modules
 spa/dist
 scripts/__pycache__
+
+# playwright-cli local cache
+.playwright-cli/
