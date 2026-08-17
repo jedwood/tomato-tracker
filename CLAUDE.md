@@ -1,6 +1,8 @@
 # tomato-tracker
 
-The app/forms/sheet workspace for Jed's tomato season tracking. Sister to the `craig` agent in jedOS (which owns the *knowledge* surface — blog, notes, playbooks). This repo owns the **data surface**: Google Sheet, Apps Script web app, two Vite + Svelte forms.
+The app/forms/sheet workspace for Jed's tomato season tracking. This repo owns the **data surface**: Google Sheet, Apps Script web app, two Vite + Svelte forms.
+
+**Ownership (as of 2026-08-17):** the `craig` agent in jedOS is the boss of *all* things garden and yard, this repo included. Craig owns both the knowledge surface (blog, notes, playbooks) and this data surface, and may edit the Sheet via the GAS admin API or push code from here directly. A session opened in this repo is doing Craig's data-layer work — coordinate accordingly rather than treating craig as read-only.
 
 If a Claude session is opened directly in this repo, this file is the load-bearing context. Read it first.
 
